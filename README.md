@@ -17,6 +17,8 @@ O mesmo comando atualiza quando sair uma versão nova. Ele:
 2. confere o **SHA-256** publicado junto com o programa e para se não bater;
 3. instala em `%LOCALAPPDATA%\PainelUHE\app` e cria o atalho **Painel UHE-Segredo** no menu Iniciar.
 
+Com o programa já instalado, basta o botão **Atualizar** (canto direito da barra de abas): ele verifica a cada 12 horas e **pisca em verde** quando há versão nova; ao clicar, o Painel baixa, confere o SHA-256, troca o próprio arquivo e reabre sozinho (sem PowerShell). Se algo impedir (pasta protegida, bloqueio de segurança), a mensagem traz o botão *Copiar comando do instalador* com a linha acima.
+
 Opções: `-Abrir` (abre ao terminar), `-SemAtalho`, `-Forcar` (reinstala/fecha o app aberto), `-Desinstalar`, `-Destino <pasta>`.
 
 ## Sobre o aviso do Windows
