@@ -38,3 +38,17 @@ Em computadores com **Smart App Control** ativo, programas sem assinatura podem 
 
 O programa só fala com o servidor do sistema (login e dados protegidos por conta). Preferências, tema e logs locais ficam em
 `%AppData%\PainelUHE` (sem senhas nem tokens nos logs). Desinstalar não apaga essa pasta.
+
+## Se der erro de conexão
+
+Se aparecer "sem conexão com o servidor", abra **Configurações (engrenagem) > Preferências > Diagnóstico de conexão** e clique em **Testar conexão**; depois **Copiar resultado** e envie ao suporte. A opção *Como o aplicativo se conecta* permite forçar o transporte **WinHTTP** (usa o proxy/PAC do Windows). O diagnóstico também existe como script (não envia senhas nem dados), numa linha:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/juanpvh/painel-uhe-segredo-desktop/main/diagnostico-conexao.ps1)))
+```
+
+Cada falha de conexão também fica registrada em `%AppData%\PainelUHE\logs\rede-AAAA-MM-DD.log` (14 dias, sem senhas nem tokens).
+
+## Ícone de conexão
+
+No cabeçalho, ao lado da engrenagem, um ícone mostra se o sistema está **online** (verde), **lento** (âmbar), **verificando** ou **sem conexão** (vermelho); passe o mouse para ver o último teste, e clique para *Testar agora* ou abrir o *Diagnóstico de conexão*. O programa testa a conexão ao abrir e no máximo uma vez por hora enquanto está aberto (e só se não houve uso recente), mais uma vez após trocar de rede ou voltar da suspensão; quando está sem conexão, tenta de novo com intervalos crescentes (30 s a 5 min). O intervalo pode ser ajustado em `settings.json` com `connectivityProbeMinutes` (padrão 60, mínimo 15).
