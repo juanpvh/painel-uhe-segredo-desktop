@@ -8,7 +8,7 @@
   Opcoes: [-Destino <pasta>] [-SemAtalho] [-Abrir] [-Forcar] [-Desinstalar]; tambem da para baixar o arquivo e rodar .\instalar-painel.ps1
 
   O que faz: baixa a ultima versao publicada (GitHub Releases), confere o SHA-256 publicado junto, instala em
-  %LOCALAPPDATA%\PainelUHE\app, cria o atalho no menu Iniciar e guarda o numero da versao. Baixar pelo PowerShell
+  %LOCALAPPDATA%\PainelUHE\app, cria os atalhos (menu Iniciar e area de trabalho, com o icone da logo) e guarda o numero da versao. Baixar pelo PowerShell
   nao marca o arquivo como "veio da internet", entao o Windows nao mostra o aviso do SmartScreen.
   Texto ASCII de proposito: funciona igual no Windows PowerShell 5.1 ao baixar pela internet.
 #>
@@ -27,7 +27,9 @@ $Repo = 'juanpvh/painel-uhe-segredo-desktop'
 $ExeNome = 'PainelDesktop.App.exe'
 $Exe = Join-Path $Destino $ExeNome
 $VersaoArq = Join-Path $Destino 'versao.txt'
-$Atalho = Join-Path ([Environment]::GetFolderPath('Programs')) 'Painel UHE-Segredo.lnk'
+$NomeAtalho = 'Painel UHE-Segredo.lnk'
+$AtalhoMenu = Join-Path ([Environment]::GetFolderPath('Programs')) $NomeAtalho
+$AtalhoDesktop = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) $NomeAtalho
 
 function Parar-App {
     $rodando = Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($ExeNome)) -ErrorAction SilentlyContinue |
@@ -42,7 +44,7 @@ function Parar-App {
 if ($Desinstalar) {
     Parar-App
     if (Test-Path $Destino) { Remove-Item $Destino -Recurse -Force }
-    if (Test-Path $Atalho) { Remove-Item $Atalho -Force }
+    foreach ($a in $AtalhoMenu, $AtalhoDesktop) { if (Test-Path $a) { Remove-Item $a -Force } }
     Write-Host 'Painel desinstalado. Suas preferencias e logs ficam em %AppData%\PainelUHE (apague a pasta se quiser).'
     return
 }
@@ -87,12 +89,15 @@ try {
 
 if (-not $SemAtalho) {
     $ws = New-Object -ComObject WScript.Shell
-    $lnk = $ws.CreateShortcut($Atalho)
-    $lnk.TargetPath = $Exe
-    $lnk.WorkingDirectory = $Destino
-    $lnk.Description = 'Painel UHE-Segredo - gestao de documentos tecnicos'
-    $lnk.Save()
-    Write-Host "Atalho criado no menu Iniciar: Painel UHE-Segredo"
+    foreach ($a in $AtalhoMenu, $AtalhoDesktop) {
+        $lnk = $ws.CreateShortcut($a)
+        $lnk.TargetPath = $Exe
+        $lnk.WorkingDirectory = $Destino
+        $lnk.IconLocation = "$Exe,0"        # o icone (logo CONSAG) esta embutido no .exe
+        $lnk.Description = 'Painel UHE-Segredo - gestao de documentos tecnicos'
+        $lnk.Save()
+    }
+    Write-Host 'Atalhos criados: menu Iniciar e area de trabalho (Painel UHE-Segredo).'
 }
 Write-Host "Pronto. Painel $versao instalado em $Destino"
 if ($Abrir) { Start-Process $Exe }
