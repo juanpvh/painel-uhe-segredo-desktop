@@ -67,7 +67,10 @@ if ($instalada) { Write-Host "Atualizando de $instalada para $versao..." } else 
 $tmp = Join-Path ([IO.Path]::GetTempPath()) ("painel-" + [Guid]::NewGuid().ToString('N') + '.exe')
 try {
     Invoke-WebRequest -Uri $assetExe.browser_download_url -OutFile $tmp -UseBasicParsing
-    $esperado = ((Invoke-WebRequest -Uri $assetSha.browser_download_url -UseBasicParsing).Content -as [string]).Trim().Split()[0].ToLowerInvariant()
+    # O GitHub entrega o .sha256 como application/octet-stream: o Content chega como bytes, nao como texto.
+    $respSha = Invoke-WebRequest -Uri $assetSha.browser_download_url -UseBasicParsing
+    $txtSha = if ($respSha.Content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($respSha.Content) } else { [string]$respSha.Content }
+    $esperado = $txtSha.Trim().Split()[0].ToLowerInvariant()
     if ($esperado -notmatch '^[0-9a-f]{64}$') { throw 'O arquivo .sha256 publicado esta invalido.' }
     $obtido = (Get-FileHash -Path $tmp -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($obtido -ne $esperado) { throw "Falha na verificacao: o SHA-256 do arquivo baixado ($obtido) nao confere com o publicado ($esperado). Nada foi instalado." }
