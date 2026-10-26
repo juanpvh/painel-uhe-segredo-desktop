@@ -20,6 +20,7 @@ param(
     [switch]$Desinstalar
 )
 $ErrorActionPreference = 'Stop'
+[Net.WebRequest]::DefaultWebProxy.Credentials = [Net.CredentialCache]::DefaultNetworkCredentials   # proxy da empresa, se existir
 $ProgressPreference = 'SilentlyContinue'   # no PowerShell 5.1 a barra de progresso deixa o download muito mais lento
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
@@ -50,13 +51,25 @@ if ($Desinstalar) {
 }
 
 Write-Host 'Procurando a ultima versao...'
-$h = @{ 'User-Agent' = 'instalar-painel'; 'Accept' = 'application/vnd.github+json' }
-$rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers $h -UseBasicParsing
-$tag = [string]$rel.tag_name
+# Sem a API do GitHub (api.github.com): sem login ela permite so 60 consultas por hora por IP, e na rede de uma empresa muita
+# gente divide o mesmo IP. O endereco "releases/latest" responde com um redirecionamento para ".../releases/tag/vX.Y.Z",
+# que nao tem esse limite; os arquivos ficam em ".../releases/download/vX.Y.Z/<arquivo>".
+function Get-UltimaTag {
+    $req = [Net.HttpWebRequest]::Create("https://github.com/$Repo/releases/latest")
+    $req.AllowAutoRedirect = $false
+    $req.UserAgent = 'instalar-painel'
+    $req.Timeout = 30000
+    $resp = $req.GetResponse()
+    try { $loc = [string]$resp.Headers['Location'] } finally { $resp.Close() }
+    if ($loc -notmatch '^https://github\.com/.+/releases/tag/(v?\d+\.\d+\.\d+)\s*$') {
+        throw 'Nao foi possivel descobrir a ultima versao (resposta inesperada do GitHub). Tente de novo em instantes.'
+    }
+    return $Matches[1]
+}
+$tag = Get-UltimaTag
 $versao = $tag.TrimStart('v')
-$assetExe = $rel.assets | Where-Object { $_.name -eq $ExeNome } | Select-Object -First 1
-$assetSha = $rel.assets | Where-Object { $_.name -eq "$ExeNome.sha256" } | Select-Object -First 1
-if (-not $assetExe -or -not $assetSha) { throw "A versao $tag nao tem o executavel e o arquivo .sha256 publicados." }
+$urlExe = "https://github.com/$Repo/releases/download/$tag/$ExeNome"
+$urlSha = "https://github.com/$Repo/releases/download/$tag/$ExeNome.sha256"
 
 $instalada = if (Test-Path $VersaoArq) { (Get-Content $VersaoArq -Raw).Trim() } else { '' }
 if ($instalada -eq $versao -and (Test-Path $Exe) -and -not $Forcar) {
@@ -68,9 +81,9 @@ if ($instalada) { Write-Host "Atualizando de $instalada para $versao..." } else 
 
 $tmp = Join-Path ([IO.Path]::GetTempPath()) ("painel-" + [Guid]::NewGuid().ToString('N') + '.exe')
 try {
-    Invoke-WebRequest -Uri $assetExe.browser_download_url -OutFile $tmp -UseBasicParsing
+    Invoke-WebRequest -Uri $urlExe -OutFile $tmp -UseBasicParsing
     # O GitHub entrega o .sha256 como application/octet-stream: o Content chega como bytes, nao como texto.
-    $respSha = Invoke-WebRequest -Uri $assetSha.browser_download_url -UseBasicParsing
+    $respSha = Invoke-WebRequest -Uri $urlSha -UseBasicParsing
     $txtSha = if ($respSha.Content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($respSha.Content) } else { [string]$respSha.Content }
     $esperado = $txtSha.Trim().Split()[0].ToLowerInvariant()
     if ($esperado -notmatch '^[0-9a-f]{64}$') { throw 'O arquivo .sha256 publicado esta invalido.' }
